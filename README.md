@@ -173,7 +173,6 @@ npm start
 ## Author
 
 **Dhanarasu Naveen**  
-Student ID: 230655533  
 Course: CM3010 – Databases and Advanced Data Techniques  
 University of London (via SIM Singapore)
 
