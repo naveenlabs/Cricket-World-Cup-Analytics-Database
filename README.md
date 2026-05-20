@@ -173,8 +173,8 @@ npm start
 ## Author
 
 **Dhanarasu Naveen**  
-Course: CM3010 – Databases and Advanced Data Techniques  
-University of London (via SIM Singapore)
+Computer Science | University of London (via SIM Singapore)  
+Specialization: Artificial Intelligence & Machine Learning
 
 ## License
 
