@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= queryTitle %> - Analytics Hub
+    </title>
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="content-wrapper">
+        <header style="margin-bottom: 20px;">
+            <h1>World Cup Cricket Analytics Hub</h1>
+        </header>
+
+        <div class="results-header-bar">
+            <a href="../" class="back-button">
+                <i class="fa-solid fa-arrow-left-long"></i> Back to Queries
+            </a>
+            <div class="header-text">
+                <h2 class="results-title">
+                    <%= queryTitle %>
+                </h2>
+                <p class="full-question">
+                    <%= fullQuestion %>
+                </p>
+            </div>
+        </div>
+
+        <% if (locals.analystTake) { %>
+            <div class="analyst-card">
+                <div class="analyst-header">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i> Analyst's Take
+                </div>
+                <p class="analyst-text">
+                    <%= analystTake %>
+                </p>
+            </div>
+            <% } %>
+
+                <div class="chart-section-card">
+                    <h3 class="chart-heading">DEATH OVER ECONOMY: THE MISER'S LEADERBOARD</h3>
+
+                    <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 20px; text-align: center;">
+                        <i>(Runs Conceded Per Over - Lower is Better)</i>
+                    </p>
+
+                    <div class="format-toggle-container" style="margin-bottom: 20px;">
+                        <div class="toggle-label active" id="label-odi">[ 🏏 ODI ]</div>
+                        <label class="switch">
+                            <input type="checkbox" id="formatToggle">
+                            <span class="slider round"></span>
+                        </label>
+                        <div class="toggle-label" id="label-t20">[ ⚡ T20 ]</div>
+                    </div>
+
+                    <div class="canvas-container"
+                        style="height: 550px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px;">
+                        <canvas id="q11Chart"></canvas>
+                    </div>
+                </div>
+
+                <main class="results-card" style="margin-top: 30px; overflow: visible;">
+                    <div class="table-responsive">
+                        <table class="results-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:50px;">#</th>
+                                    <% fields.forEach(field=> { %>
+                                        <th>
+                                            <%= field.name.toUpperCase().replace(/_/g,' ') %></th>
+                            <% }) %>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script id="data-results" type="application/json"><%- JSON.stringify(results || []) %></script>
+    <script id="data-fields" type="application/json"><%- JSON.stringify(fields || []) %></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const rawResults =
+                JSON.parse(document.getElementById('data-results').textContent);
+            const tableFields =
+                JSON.parse(document.getElementById('data-fields').textContent);
+            const formatToggle = document.getElementById('formatToggle');
+            const tbody = document.getElementById('tableBody');
+            const labelOdi = document.getElementById('label-odi');
+            const labelT20 = document.getElementById('label-t20');
+
+            let chartInstance = null;
+
+            function updateView() {
+                const isT20 = formatToggle.checked;
+                const format = isT20 ? 'T20' : 'ODI';
+
+                labelOdi.classList.toggle('active', !isT20);
+                labelT20.classList.toggle('active', isT20);
+
+                // Filter and Sort by Economy (Ascending - Lower is Better)
+                const filteredData = rawResults
+                    .filter(r => (r.format_name || '').trim() === format)
+                    .sort((a, b) => Number(a.death_eco_rate) - Number(b.death_eco_rate));
+
+                // 1. RENDER TABLE
+                tbody.innerHTML = '';
+                filteredData.forEach((row, i) => {
+                    const tr = document.createElement('tr');
+
+                    // --- RANK STYLING LOGIC ---
+                    let rank = `<div class="rank-circle">${i + 1}</div>`;
+
+                    // Rank 1: Gold + Crown
+                    if (i === 0) {
+                        rank = `<div class="rank-circle rank-1" style="background: linear-gradient(135deg, #FFD700, #FDB931); 
+                                            color: #000; 
+                                            box-shadow: 0 0 15px rgba(255, 215, 0, 0.6); 
+                                            border:none;">
+                                                    <i class="fa-solid fa-crown"></i>
+                                                </div>`;
+                    }
+                    // Rank 2: Silver
+                    else if (i === 1) {
+                        rank = `<div class="rank-circle rank-2" style="background: linear-gradient(135deg, #E0E0E0, #BDBDBD); 
+                                            color: #000; 
+                                            box-shadow: 0 0 10px rgba(192, 192, 192, 0.5); 
+                                            border:none;">
+                                                    2
+                                                </div>`;
+                    }
+                    // Rank 3: Bronze
+                    else if (i === 2) {
+                        rank = `<div class="rank-circle rank-3" style="background: linear-gradient(135deg, #CD7F32, #A0522D); 
+                                            color: #fff; 
+                                            box-shadow: 0 0 10px rgba(205, 127, 50, 0.5); 
+                                            border:none;">
+                                                    3
+                                                </div>`;
+                    }
+
+                    let html = `
+                                        <td>${rank}</td>`;
+                    tableFields.forEach(f => {
+                        let v = row[f.name];
+                        if (f.name === 'format_name') {
+                            v = `<span
+                                            class="format-badge ${v === 'ODI' ? 'format-odi' : 'format-t20'}">${v}</span>`;
+                        } else if (f.name === 'death_eco_rate') {
+                            // Green text for top performers in table
+                            v = `<strong
+                                            style="color: ${i < 3 ? '#39ff14' : '#fff'}">${Number(v).toFixed(2)}</strong>`;
+                        } else if (!isNaN(v) && v !== null && v !== '' && v % 1 !== 0) {
+                            v = Number(v).toFixed(2);
+                        }
+                        html += `<td>${v ?? '-'}</td>`;
+                    });
+                    tr.innerHTML = html;
+                    tbody.appendChild(tr);
+                });
+
+                // 2. RENDER HORIZONTAL BAR CHART
+                const ctx = document.getElementById('q11Chart').getContext('2d');
+                if (chartInstance) chartInstance.destroy();
+
+                const names = filteredData.map(r => r.bowler_name);
+                const economy = filteredData.map(r => Number(r.death_eco_rate));
+
+                // --- CHART COLOR LOGIC: Green to Red Heatmap ---
+                const backgroundColors = names.map((name, index) => {
+                    const hue = Math.max(0, 120 - (index * 8));
+                    return `hsl(${hue}, 100%, 50%)`;
+                });
+
+                chartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: names,
+                        datasets: [{
+                            label: 'Economy Rate',
+                            data: economy,
+                            backgroundColor: backgroundColors,
+                            borderRadius: 4,
+                            barPercentage: 0.6,
+                            borderColor: '#000',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y', // Horizontal
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: { duration: 1000, easing: 'easeOutQuart' },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(0,0,0,0.9)',
+                                titleFont: { size: 14 },
+                                bodyFont: { size: 13 },
+                                callbacks: {
+                                    label: (ctx) => ` Eco: ${ctx.raw.toFixed(2)} runs/over`
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true, text: 'Runs Conceded Per Over (Lower is Better)', color:
+                                        '#94a3b8'
+                                },
+                                grid: { color: 'rgba(255,255,255,0.05)' },
+                                ticks: { color: '#cbd5e1' },
+                                beginAtZero: true
+                            },
+                            y: {
+                                grid: { display: false },
+                                ticks: { color: '#fff', font: { weight: 'bold' } }
+                            }
+                        }
+                    },
+
+                    // --- GLOW PLUGIN ---
+                    plugins: [{
+                        id: 'miserGlow',
+                        beforeDatasetsDraw: function (chart) {
+                            const { ctx } = chart;
+                            ctx.save();
+                            ctx.shadowBlur = 0;
+                        },
+                        afterDatasetsDraw: function (chart) {
+                            const { ctx } = chart;
+                            chart.data.datasets.forEach((dataset, i) => {
+                                const meta = chart.getDatasetMeta(i);
+                                meta.data.forEach((bar, index) => {
+
+                                    // Only add glow to Top 3 (using their heatmap color)
+                                    if (index < 3) {
+                                        const barColor = dataset.backgroundColor[index]; ctx.save();
+                                        ctx.shadowColor = barColor; ctx.shadowBlur = 15; ctx.fillStyle = barColor;
+                                        ctx.fillRect(bar.x - bar.width, bar.y - bar.height / 2, bar.width,
+                                            bar.height); ctx.restore();
+                                    }
+                                });
+                            }); ctx.restore();
+                        }
+                    }]
+                });
+            }
+            formatToggle.addEventListener('change', updateView); updateView();
+        });
+    </script>
+</body>
+
+</html>

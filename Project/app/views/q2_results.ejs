@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= queryTitle %>
+    </title>
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* 1. FREEDOM MODE: FORCE SCROLLING */
+        html,
+        body {
+            height: auto !important;
+            min-height: 100vh !important;
+            overflow-y: auto !important;
+        }
+
+        .content-wrapper,
+        .results-card,
+        .table-responsive {
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            display: block !important;
+        }
+
+        /* 2. RANK CIRCLE STYLING (Gold/Silver/Bronze) */
+        .rank-circle {
+            transition: all 0.3s ease;
+            font-weight: 800;
+        }
+
+        .rank-1 {
+            background: #fbbf24 !important;
+            color: #000 !important;
+            transform: scale(1.1);
+            box-shadow: 0 0 10px rgba(251, 191, 36, 0.6);
+        }
+
+        .rank-2 {
+            background: #cbd5e1 !important;
+            color: #000 !important;
+            transform: scale(1.05);
+        }
+
+        .rank-3 {
+            background: #b45309 !important;
+            color: #fff !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="content-wrapper">
+        <header style="margin-bottom: 20px;">
+            <h1>World Cup Cricket Analytics Hub</h1>
+        </header>
+
+        <div class="results-header-bar">
+            <a href="../" class="back-button"><i class="fa-solid fa-arrow-left-long"></i> Back</a>
+            <div class="header-text">
+                <h2 class="results-title">
+                    <%= queryTitle %>
+                </h2>
+                <p class="full-question">
+                    <%= fullQuestion %>
+                </p>
+            </div>
+        </div>
+
+        <div class="chart-section-card">
+            <h3 class="chart-heading">Batting Gears: Runs vs Strike Rate</h3>
+
+            <div class="format-toggle-container">
+                <div class="toggle-label active" id="label-odi">[ 🏏 ODI World Cup ]</div>
+                <label class="switch">
+                    <input type="checkbox" id="formatToggle">
+                    <span class="slider round"></span>
+                </label>
+                <div class="toggle-label" id="label-t20">[ ⚡ T20 World Cup ]</div>
+            </div>
+
+            <div class="canvas-container" style="height: 500px; position: relative;">
+                <canvas id="q2Chart"></canvas>
+            </div>
+        </div>
+
+        <main class="results-card" style="margin-top: 30px;">
+            <div class="table-responsive">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Format</th>
+                            <th>Phase</th>
+                            <th>Player Name</th>
+                            <th>Team</th>
+                            <th>Matches</th>
+                            <th>Total Runs</th>
+                            <th>Balls Faced</th>
+                            <th>Strike Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% results.forEach(function(row) { %>
+                            <tr class="data-row" data-format="<%= row.format_name %>"
+                                data-phase="<%= row.match_phase %>">
+                                <td>
+                                    <div class="rank-circle"></div>
+                                </td>
+
+                                <td>
+                                    <% if (row.format_name==='ODI' ) { %>
+                                        <span class="format-badge format-odi">ODI</span>
+                                        <% } else { %>
+                                            <span class="format-badge format-t20">T20</span>
+                                            <% } %>
+                                </td>
+
+                                <td>
+                                    <% let pColor='#fff' ; if (row.match_phase==='Powerplay' ) pColor='#00f2ff' ; if
+                                        (row.match_phase==='Middle Overs' ) pColor='#fbbf24' ; if
+                                        (row.match_phase==='Death Overs' ) pColor='#ef4444' ; %>
+                                        <span style="color:<%= pColor %>; font-weight:bold;">
+                                            <%= row.match_phase %>
+                                        </span>
+                                </td>
+
+                                <td>
+                                    <%= row.player_name %>
+                                </td>
+                                <td>
+                                    <%= row.team_name %>
+                                </td>
+                                <td>
+                                    <%= row.matches_played %>
+                                </td>
+                                <td>
+                                    <%= row.total_runs %>
+                                </td>
+                                <td>
+                                    <%= row.balls_faced %>
+                                </td>
+                                <td><strong>
+                                        <%= Number(row.strike_rate).toFixed(2) %>
+                                    </strong></td>
+                            </tr>
+                            <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script id="data-payload" type="application/json"><%- JSON.stringify(results || []) %></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const payload = document.getElementById('data-payload');
+            if (!payload) return;
+
+            const rawData = JSON.parse(payload.textContent);
+            const ctx = document.getElementById('q2Chart');
+            const toggle = document.getElementById('formatToggle');
+            const labelOdi = document.getElementById('label-odi');
+            const labelT20 = document.getElementById('label-t20');
+            let chartInstance = null;
+
+            function updateView() {
+                const isT20 = toggle.checked;
+                const format = isT20 ? 'T20' : 'ODI';
+
+                // 1. Toggle Labels
+                labelOdi.classList.toggle('active', !isT20);
+                labelT20.classList.toggle('active', isT20);
+
+                // 2. Filter Table Rows & Recalculate Rank PER PHASE
+                const rows = document.querySelectorAll('.data-row');
+
+                let currentPhase = null;
+                let rankCounter = 1;
+
+                rows.forEach(row => {
+                    const rowFormat = row.getAttribute('data-format');
+                    const rowPhase = row.getAttribute('data-phase');
+
+                    if (rowFormat === format) {
+                        row.style.display = ''; // Show row
+
+                        // 🌟 LOGIC: If phase changes (e.g., Powerplay -> Middle), Reset Rank to 1
+                        if (rowPhase !== currentPhase) {
+                            currentPhase = rowPhase;
+                            rankCounter = 1;
+                        }
+
+                        // Apply Rank Number & Color
+                        const rankCircle = row.querySelector('.rank-circle');
+                        if (rankCircle) {
+                            rankCircle.textContent = rankCounter;
+
+                            // Reset styling
+                            rankCircle.classList.remove('rank-1', 'rank-2', 'rank-3');
+                            rankCircle.style.background = '#334155'; // Default dark grey
+
+                            // Apply Medals
+                            if (rankCounter === 1) rankCircle.classList.add('rank-1'); // Gold
+                            if (rankCounter === 2) rankCircle.classList.add('rank-2'); // Silver
+                            if (rankCounter === 3) rankCircle.classList.add('rank-3'); // Bronze
+                        }
+
+                        rankCounter++;
+                    } else {
+                        row.style.display = 'none'; // Hide row
+                    }
+                });
+
+                // 3. Filter Chart Data
+                const filteredData = rawData.filter(r => r.format_name === format);
+
+                if (chartInstance) chartInstance.destroy();
+
+                const getSeries = (phase) => filteredData
+                    .filter(r => r.match_phase === phase)
+                    .map(r => ({
+                        x: Number(r.total_runs),
+                        y: Number(r.strike_rate),
+                        r: Math.max(5, Math.sqrt(Number(r.balls_faced)) * 0.7),
+                        player: r.player_name,
+                        team: r.team_name
+                    }));
+
+                chartInstance = new Chart(ctx.getContext('2d'), {
+                    type: 'bubble',
+                    data: {
+                        datasets: [
+                            { label: 'Powerplay', data: getSeries('Powerplay'), backgroundColor: 'rgba(0, 242, 255, 0.6)', borderColor: '#00f2ff' },
+                            { label: 'Middle Overs', data: getSeries('Middle Overs'), backgroundColor: 'rgba(251, 191, 36, 0.6)', borderColor: '#fbbf24' },
+                            { label: 'Death Overs', data: getSeries('Death Overs'), backgroundColor: 'rgba(239, 68, 68, 0.6)', borderColor: '#ef4444' }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { labels: { color: '#ccc', font: { size: 14 } } },
+                            tooltip: {
+                                callbacks: {
+                                    label: (c) => `${c.raw.player}: ${c.raw.x} Runs @ ${c.raw.y} SR`
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { title: { display: true, text: 'Total Runs', color: '#888' }, grid: { color: '#333' } },
+                            y: { title: { display: true, text: 'Strike Rate', color: '#888' }, grid: { color: '#333' } }
+                        }
+                    }
+                });
+            }
+
+            toggle.addEventListener('change', updateView);
+            updateView(); // Initial Load
+        });
+    </script>
+</body>
+
+</html>
