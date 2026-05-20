@@ -1,0 +1,156 @@
+<%# 
+    VIEW TEMPLATE: index.ejs 
+    -----------------------------------------------------------------------------
+    Description: Main Dashboard / Landing Page for the Analytics Hub.
+    Features: 
+    - Dynamic card generation for 15 analytical queries.
+    - Category-based icons (Batting, Bowling, Strategy).
+    - Real-time client-side search and category filtering.
+    - Responsive Grid Layout with watermark ID integration.
+    -----------------------------------------------------------------------------
+%>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>World Cup Analytics Hub</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+
+    <div class="content-wrapper">
+
+        <header>
+            <h1>World Cup Cricket Analytics Hub</h1>
+            <p class="subtitle">
+                Explore key performance indicators derived from historical World Cup data to understand player impact,
+                phase-based team strategies, and match success factors.
+            </p>
+        </header>
+
+        <div class="control-bar">
+            <input type="text" id="query-search" placeholder="Search for cricket data..." class="search-input">
+
+            <div class="filter-group">
+                <button class="toggle-button active" data-filter="ALL">All Queries</button>
+                <button class="toggle-button" data-filter="Batting">Batting</button>
+                <button class="toggle-button" data-filter="Bowling">Bowling & Fielding</button>
+                <button class="toggle-button" data-filter="Strategy">Team Strategy</button>
+            </div>
+        </div>
+
+        <h2 id="heading-Batting" class="category-heading">Batting</h2>
+        <h2 id="heading-Bowling" class="category-heading">Bowling & Fielding</h2>
+        <h2 id="heading-Strategy" class="category-heading">Team Strategy</h2>
+
+        <ul class="question-list">
+            <% questions.forEach((q, index) => {
+                /**
+                 * UI LOGIC: 
+                 * 1. Assign specific FontAwesome icons based on query category.
+                 * 2. Pad the index for the background watermark (e.g., 1 -> 01).
+                 */
+                let iconClass = 'fa-chart-simple';
+                if(q.category === 'Batting') iconClass = 'fa-baseball-bat-ball';
+                if(q.category === 'Bowling') iconClass = 'fa-bullseye';
+                if(q.category === 'Strategy') iconClass = 'fa-chess-knight';
+
+                let displayId = (index + 1).toString().padStart(2, '0');
+                %>
+                
+                <li class="query-item" data-category="<%= q.category %>">
+                    <a href="query/<%= q.id %>" class="query-link">
+                        <div class="card-top">
+                            <i class="fa-solid <%= iconClass %> icon-box"></i>
+                        </div>
+
+                        <div class="query-title">
+                            <%= q.title %>
+                        </div>
+                        <div class="query-summary">
+                            <%= q.summary %>
+                        </div>
+                    </a>
+                    <span class="watermark">
+                        <%= displayId %>
+                    </span>
+                </li>
+            <% }) %>
+        </ul>
+
+    </div>
+
+    <script>
+        /**
+         * FRONT-END CONTROLLER: Dashboard Search & Filter
+         * Handles real-time DOM manipulation based on user input and toggle selection.
+         */
+        const searchInput = document.getElementById('query-search');
+        const toggleButtons = document.querySelectorAll('.toggle-button');
+        const queryItems = document.querySelectorAll('.query-item');
+        
+        // Categorical Headings Reference
+        const headings = {
+            'Batting': document.getElementById('heading-Batting'),
+            'Bowling': document.getElementById('heading-Bowling'),
+            'Strategy': document.getElementById('heading-Strategy')
+        };
+        const allHeadings = Object.values(headings);
+
+        /**
+         * Filters the dashboard items based on Search Text and Category Buttons
+         */
+        function filterQueries() {
+            const searchText = searchInput.value.toLowerCase();
+            const activeFilter = document.querySelector('.toggle-button.active').dataset.filter;
+            const visibleCategories = new Set();
+
+            queryItems.forEach(item => {
+                const title = item.querySelector('.query-title').textContent.toLowerCase();
+                const summary = item.querySelector('.query-summary').textContent.toLowerCase();
+                const itemCategory = item.dataset.category;
+
+                const matchesSearch = title.includes(searchText) || summary.includes(searchText);
+                const matchesCategory = activeFilter === 'ALL' || itemCategory === activeFilter;
+
+                if (matchesSearch && matchesCategory) {
+                    item.style.display = 'flex';
+                    visibleCategories.add(itemCategory);
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+
+            // Update Heading visibility based on results
+            allHeadings.forEach(h => h.style.display = 'none');
+            if (activeFilter !== 'ALL') {
+                visibleCategories.forEach(category => {
+                    if (headings[category]) headings[category].style.display = 'flex';
+                });
+            }
+        }
+
+        // --- EVENT LISTENERS ---
+
+        // Real-time Search Input
+        searchInput.addEventListener('input', filterQueries);
+
+        // Category Filter Toggle
+        toggleButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                toggleButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                filterQueries();
+            });
+        });
+
+        // Initialize view on load
+        filterQueries();
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,275 @@
+<%# 
+    VIEW TEMPLATE: q15_results.ejs 
+    -----------------------------------------------------------------------------
+    Description: Momentum Impact Analysis (The Wicket Crash).
+    Features: 
+    - Horizontal Dumbbell Chart (Line datasets with custom segment connectors).
+    - Visualizes Run Rate (RR) Before vs. After a wicket event.
+    - Custom Chart.js plugin 'dumbbellConnector' for dynamic segment coloring.
+    - Format switching (ODI/T20) with synchronized sorting by RR drop.
+    -----------------------------------------------------------------------------
+%>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= queryTitle %> - Analytics Hub</title>
+    
+    <link rel="stylesheet" href="../style.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="content-wrapper">
+        <header style="margin-bottom: 20px">
+            <h1>World Cup Cricket Analytics Hub</h1>
+        </header>
+
+        <div class="results-header-bar">
+            <a href="../" class="back-button">
+                <i class="fa-solid fa-arrow-left-long"></i> Back to Queries
+            </a>
+            <div class="header-text">
+                <h2 class="results-title"><%= queryTitle %></h2>
+                <p class="full-question"><%= fullQuestion %></p>
+            </div>
+        </div>
+
+        <% if (locals.analystTake) { %>
+            <div class="analyst-card">
+                <div class="analyst-header">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i> Analyst's Take
+                </div>
+                <p class="analyst-text"><%= analystTake %></p>
+            </div>
+        <% } %>
+
+        <div class="chart-section-card">
+            <h3 class="chart-heading">MOMENTUM IMPACT: THE WICKET CRASH</h3>
+
+            <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 20px; text-align: center;">
+                <span style="color: #39ff14">● RR Before Wicket</span>
+                <span style="color: #64748b"> ─── Impact ─── </span>
+                <span style="color: #ef4444">● RR After Wicket</span>
+                <br />
+                <i>(Sorted by Magnitude of Drop)</i>
+            </p>
+
+            <div class="format-toggle-container" style="margin-bottom: 20px">
+                <div class="toggle-label active" id="label-odi">[ 🏏 ODI World Cup ]</div>
+                <label class="switch">
+                    <input type="checkbox" id="formatToggle" />
+                    <span class="slider round"></span>
+                </label>
+                <div class="toggle-label" id="label-t20">[ ⚡ T20 World Cup ]</div>
+            </div>
+
+            <div class="canvas-container" style="
+                height: 800px;
+                background: rgba(0, 0, 0, 0.25);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 16px;
+                padding: 20px;
+            ">
+                <canvas id="q15Chart"></canvas>
+            </div>
+        </div>
+
+        <main class="results-card" style="margin-top: 30px; overflow: visible">
+            <div class="table-responsive">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px">#</th>
+                            <% fields.forEach(field => { %>
+                                <th><%= field.name.toUpperCase().replace(/_/g,' ') %></th>
+                            <% }) %>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script id="data-results" type="application/json"><%- JSON.stringify(results || []) %></script>
+    <script id="data-fields" type="application/json"><%- JSON.stringify(fields || []) %></script>
+
+    <script>
+        /**
+         * FRONT-END CONTROLLER: Q15 Momentum Analysis
+         * Manages the horizontal dumbbell chart and conditional formatting for momentum shifts.
+         */
+        document.addEventListener("DOMContentLoaded", () => {
+            // --- DATA PARSING ---
+            const rawResults = JSON.parse(document.getElementById("data-results").textContent);
+            const tableFields = JSON.parse(document.getElementById("data-fields").textContent);
+
+            // --- UI BINDINGS ---
+            const formatToggle = document.getElementById("formatToggle");
+            const tbody = document.getElementById("tableBody");
+            const labelOdi = document.getElementById("label-odi");
+            const labelT20 = document.getElementById("label-t20");
+
+            let chartInstance = null;
+
+            /**
+             * Core function to update the view based on toggle state
+             */
+            function updateView() {
+                const isT20 = formatToggle.checked;
+                const format = isT20 ? "T20" : "ODI";
+
+                // Sync UI Labels
+                labelOdi.classList.toggle("active", !isT20);
+                labelT20.classList.toggle("active", isT20);
+
+                // Filter and sort by the severity of the drop (Average RR Change)
+                const filteredData = rawResults
+                    .filter((r) => (r.format_name || "").trim() === format)
+                    .sort((a, b) => Number(a.avg_rr_change) - Number(b.avg_rr_change));
+
+                // --- TABLE RENDERING LOGIC ---
+                tbody.innerHTML = "";
+                filteredData.forEach((row, i) => {
+                    const tr = document.createElement("tr");
+
+                    // Highlight Top 3 teams most affected by wickets
+                    let rank = `<div class="rank-circle" style="background:#334155;">${i + 1}</div>`;
+                    if (i < 3) rank = `<div class="rank-circle" style="background:#ef4444; color:#fff;">${i + 1}</div>`;
+
+                    let html = `<td>${rank}</td>`;
+                    tableFields.forEach((f) => {
+                        let v = row[f.name];
+                        if (f.name === "format_name") {
+                            v = `<span class="format-badge ${v === "ODI" ? "format-odi" : "format-t20"}">${v}</span>`;
+                        } else if (f.name.includes("rr")) {
+                            if (f.name === "avg_rr_change") {
+                                const val = Number(v);
+                                // Semantic coloring for momentum change
+                                const color = val < -1.0 ? "#ef4444" : val > 0 ? "#39ff14" : "#fff";
+                                v = `<strong style="color:${color}">${val.toFixed(2)}</strong>`;
+                            } else {
+                                v = Number(v).toFixed(2);
+                            }
+                        }
+                        html += `<td>${v ?? "-"}</td>`;
+                    });
+                    tr.innerHTML = html;
+                    tbody.appendChild(tr);
+                });
+
+                // --- CHART INITIALIZATION ---
+                const ctx = document.getElementById("q15Chart").getContext("2d");
+                if (chartInstance) chartInstance.destroy();
+
+                const labels = filteredData.map((r) => r.team_name);
+                const beforeData = filteredData.map((r) => Number(r.avg_rr_before_wicket));
+                const afterData = filteredData.map((r) => Number(r.avg_rr_after_wicket));
+
+                chartInstance = new Chart(ctx, {
+                    type: "line",
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: "Before Wicket",
+                                data: beforeData,
+                                backgroundColor: "#39ff14",
+                                borderColor: "#39ff14",
+                                pointRadius: 6,
+                                pointHoverRadius: 8,
+                                showLine: false, 
+                            },
+                            {
+                                label: "After Wicket",
+                                data: afterData,
+                                backgroundColor: "#ef4444",
+                                borderColor: "#ef4444",
+                                pointRadius: 6,
+                                pointHoverRadius: 8,
+                                showLine: false,
+                            },
+                        ],
+                    },
+                    options: {
+                        indexAxis: "y", // Render horizontally
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: { duration: 1200, easing: "easeOutQuart" },
+                        plugins: {
+                            legend: {
+                                position: "top",
+                                labels: {
+                                    color: "#cbd5e1",
+                                    usePointStyle: true,
+                                    font: { weight: "bold" },
+                                },
+                            },
+                            tooltip: {
+                                backgroundColor: "rgba(15, 23, 42, 0.95)",
+                                titleFont: { size: 14, weight: "bold" },
+                                bodyFont: { size: 13 },
+                                callbacks: {
+                                    label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw.toFixed(2)} rpo`,
+                                },
+                            },
+                        },
+                        scales: {
+                            x: {
+                                title: { display: true, text: "Runs Per Over (RPO)", color: "#94a3b8" },
+                                grid: { color: "rgba(255,255,255,0.05)" },
+                                ticks: { color: "#cbd5e1", font: { weight: "bold" } },
+                                min: 0,
+                            },
+                            y: {
+                                grid: { color: "rgba(255,255,255,0.02)" },
+                                ticks: { color: "#fff", font: { weight: "bold" } },
+                            },
+                        },
+                    },
+                    // CUSTOM PLUGIN: Connects the 'Before' and 'After' points with a themed segment
+                    plugins: [
+                        {
+                            id: "dumbbellConnector",
+                            beforeDatasetsDraw: function (chart) {
+                                const { ctx } = chart;
+                                const dataset0 = chart.getDatasetMeta(0);
+                                const dataset1 = chart.getDatasetMeta(1);
+
+                                ctx.save();
+                                ctx.lineWidth = 2;
+
+                                dataset0.data.forEach((point0, index) => {
+                                    const point1 = dataset1.data[index];
+
+                                    if (point0 && point1) {
+                                        const isDrop = point1.x < point0.x;
+                                        // Red segment for RR drop, green for improvement
+                                        const strokeColor = isDrop ? "rgba(239, 68, 68, 0.4)" : "rgba(57, 255, 20, 0.4)";
+                                        ctx.strokeStyle = strokeColor;
+                                        ctx.beginPath();
+                                        ctx.moveTo(point0.x, point0.y);
+                                        ctx.lineTo(point1.x, point1.y);
+                                        ctx.stroke();
+                                    }
+                                });
+                                ctx.restore();
+                            },
+                        },
+                    ],
+                });
+            }
+
+            // --- EVENT LISTENERS ---
+            formatToggle.addEventListener("change", updateView);
+            updateView();
+        });
+    </script>
+</body>
+
+</html>
