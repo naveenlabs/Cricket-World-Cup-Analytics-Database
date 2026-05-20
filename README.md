@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/python-3.6+-blue)]()
 [![Status](https://img.shields.io/badge/status-complete-success)]()
 
-## Overview
+## Overview 
 
 A full-stack relational database project analyzing 398 World Cup cricket matches (ODI & T20 formats). Features normalized MySQL schema (3NF), 15 advanced SQL queries using CTEs and window functions, Python ETL pipeline, and interactive Node.js analytics dashboard with Chart.js visualizations.
 
@@ -57,6 +57,7 @@ A full-stack relational database project analyzing 398 World Cup cricket matches
 ### Option 1: Coursera Lab (Recommended - Pre-Configured)
 
 Everything is already set up. Just run the application.
+Link : https://hub.labs.coursera.org:443/connect/sharedlznbekpu?forceRefresh=false&path=%2F%3Ffolder%3D%2Fhome%2Fcoder%2Fproject&sessionMigrationMode=shadow
 
 ```bash
 cd app
