@@ -57,6 +57,7 @@ A full-stack relational database project analyzing 398 World Cup cricket matches
 ### Option 1: Coursera Lab (Recommended - Pre-Configured)
 
 Everything is already set up. Just run the application.
+
 Link : https://hub.labs.coursera.org:443/connect/sharedlznbekpu?forceRefresh=false&path=%2F%3Ffolder%3D%2Fhome%2Fcoder%2Fproject&sessionMigrationMode=shadow
 
 ```bash
