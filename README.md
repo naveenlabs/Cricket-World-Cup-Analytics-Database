@@ -1,181 +1,183 @@
 # Cricket World Cup Analytics Hub
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
-[![MySQL](https://img.shields.io/badge/MySQL-5.7+-blue.svg)](https://www.mysql.com/)
-[![Python](https://img.shields.io/badge/Python-3.6+-blue.svg)](https://www.python.org/)
-
-> Full-stack relational database project analyzing 398 World Cup cricket matches (ODI & T20) using normalized MySQL schema (3NF), 15 advanced SQL queries, Python ETL pipeline, and interactive Node.js analytics dashboard with Chart.js visualizations.
+[![License](https://img.shields.io/badge/license-MIT-green)]()
+[![Node.js](https://img.shields.io/badge/node.js-18+-blue)]()
+[![MySQL](https://img.shields.io/badge/mysql-5.7+-orange)]()
+[![Python](https://img.shields.io/badge/python-3.6+-blue)]()
+[![Status](https://img.shields.io/badge/status-complete-success)]()
 
 ## Overview
 
-A comprehensive database application modeling ball-by-ball cricket match data from 166 ODI World Cup matches (2011–2023) and 232 T20 World Cup matches (2010–2024). The project demonstrates relational database design, advanced SQL analytics, ETL pipelines, and full-stack web development.
+A full-stack relational database project analyzing 398 World Cup cricket matches (ODI & T20 formats). Features normalized MySQL schema (3NF), 15 advanced SQL queries using CTEs and window functions, Python ETL pipeline, and interactive Node.js analytics dashboard with Chart.js visualizations.
 
-**Key Features:** Normalized 3NF MySQL schema with 10 relational tables. 15 complex SQL queries using CTEs, window functions, and multi-table joins. Python ETL pipeline for reproducible data loading. Express.js backend with EJS templating and Chart.js visualizations. Phase-based performance analysis (powerplay, middle, death overs). ODI vs T20 format comparison throughout.
+**Module:** CM3010 Databases and Advanced Data Techniques  
+**Dataset:** 166 ODI World Cup matches (2011–2023) | 232 T20 World Cup matches (2010–2024)  
+**Data Source:** Cricsheet (ball-by-ball JSON) | **Total:** 398 World Cup matches
+
+## Key Results
+
+| Aspect | Coverage | Details |
+|--------|----------|---------|
+| **Database** | 10 Normalized Tables | 3NF schema with referential integrity |
+| **Queries** | 15 Analytical Queries | CTEs, window functions, multi-table joins |
+| **Architecture** | Full-Stack Application | Express.js backend + EJS frontend + Chart.js visualizations |
+| **Data Granularity** | Ball-by-Ball | Match → Innings → Delivery level analysis |
+
+## What's Inside
+
+**Node.js Web Application** (`app/server.js`):
+- Express.js REST API with 15 query endpoints (/query/:id)
+- EJS dynamic templating for result visualization
+- Chart.js integration for interactive data charts
+- Responsive CSS design for cross-device compatibility
+
+**MySQL Database** (`sql/schema.sql`):
+- 10 normalized tables: Format, Venue, Team, Player, Match, MatchTeam, Innings, Delivery, DeliveryExtra, Wicket, FieldingEvent
+- MatchTeam M:N associative entity resolving team-match relationships
+- Referential integrity via foreign keys and unique constraints
+- Optimized indexes for analytical query performance
+
+**SQL Queries** (`sql/queries.sql`):
+- Q1–Q6: Performance & Phase Analytics (strike rate, powerplay impact, dismissals)
+- Q7–Q15: Context & Efficiency (combined impact, fielding, venue patterns, momentum)
+- Advanced techniques: CTEs, window functions (ROW_NUMBER, RANK, DENSE_RANK), complex aggregations
+
+**Python ETL** (`scripts/load_data.py`):
+- Parses 398 Cricsheet JSON match files
+- Normalizes hierarchical data into relational tables
+- Validates data integrity and handles edge cases
+- Reproducible pipeline for consistent data loading
+
+**Cricket Data** (`data/` directory):
+- ODI_WC: 2011 (49), 2015 (42), 2019 (36), 2023 (39) matches
+- T20_WC: 2010 (25), 2012 (25), 2014 (32), 2016 (27), 2021 (40), 2022 (39), 2024 (44) matches
 
 ## Quick Start
 
-### Option 1: Coursera Lab (Recommended - No Setup Required)
+### Option 1: Coursera Lab (Recommended - Pre-Configured)
 
-Everything is pre-configured and ready to run.
+Everything is already set up. Just run the application.
 
-**1. Navigate to Application**
 ```bash
 cd app
-```
-
-**2. Start Server**
-```bash
 node server.js
+# Open browser at port shown in terminal output
 ```
-
-**3. Open Browser**
-Click the provided port link in terminal output. The dashboard will display all 15 cricket analytics queries with real-time visualizations.
-
----
 
 ### Option 2: Local Computer (Full Setup)
 
-#### Prerequisites
-- Node.js (v14+)
-- MySQL (v5.7+)
-- Python 3.6+
+**Prerequisites:** Node.js (v14+) | MySQL (v5.7+) | Python 3.6+
 
-#### Installation
-
-**1. Clone Repository**
 ```bash
+# 1. Clone repository
 git clone https://github.com/naveenlabs/Cricket-World-Cup-Analytics-Database.git
 cd Cricket-World-Cup-Analytics-Database
-```
 
-**2. Setup MySQL Database**
-```bash
+# 2. Create database
 mysql -u root -p < sql/schema.sql
-```
 
-**3. Load Cricket Data**
-```bash
+# 3. Load data
 pip install -r requirements.txt
 python scripts/load_data.py
-```
 
-**4. Configure Database Credentials**
+# 4. Configure credentials
+# Edit app/db.js and update MySQL password
 
-Edit `app/db.js`:
-```javascript
-const connection = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: 'your_mysql_password',
-  database: 'cricket_wc'
-});
-```
-
-**5. Install Node Dependencies**
-```bash
+# 5. Install dependencies
 npm install
-```
 
-**6. Start Application**
-```bash
+# 6. Start application
 npm start
+
+# 7. Access dashboard
+# http://localhost:3000
 ```
-
-**7. Access Dashboard**
-```
-http://localhost:3000
-```
-
-## Project Structure
-
-```
-Cricket-World-Cup-Analytics-Database/
-├── app/                          # Node.js Web Application
-│   ├── server.js                 # Express server
-│   ├── db.js                     # MySQL connection
-│   ├── routes.js                 # API routes
-│   ├── app_queries.js            # 15 query functions
-│   ├── views/                    # EJS templates
-│   └── public/                   # Static assets
-├── data/                         # Cricket Data (398 JSON files)
-│   ├── ODI_WC/                   # ODI World Cups (166 matches)
-│   └── T20_WC/                   # T20 World Cups (232 matches)
-├── scripts/
-│   └── load_data.py              # Python ETL
-├── sql/
-│   ├── schema.sql                # Database DDL
-│   └── queries.sql               # 15 SQL queries
-├── package.json
-├── requirements.txt
-└── README.md
-```
-
-## Database Schema
-
-**10 Normalized Tables (3NF):** Format, Venue, Team (Lookup) | Player, Match (Core) | MatchTeam, Innings (Structural) | Delivery, DeliveryExtra, Wicket, FieldingEvent (Events)
-
-**Key Relationships:** Team ↔ Match (M:N via MatchTeam) | Match → Innings (1:N) | Innings → Delivery (1:N) | Delivery → Wicket/Extra/Fielding (0..N:1)
 
 ## 15 Research Questions
 
-**Performance & Phase Analytics (Q1–Q6):** Q1: Consistent run-scoring patterns. Q2: Batting strike rate across phases. Q3: Strike rate by batting position. Q4: Powerplay run proportion. Q5: Wicket-taking effectiveness. Q6: Dismissal distribution.
+**Performance & Phase Analytics (Q1–Q6)**
+- Q1: Consistent run-scoring patterns across World Cup matches
+- Q2: Batting strike rate across powerplay/middle/death phases
+- Q3: Strike rate variation by batting position
+- Q4: Powerplay run proportion (winning vs losing teams)
+- Q5: Wicket-taking effectiveness by phase
+- Q6: Dismissal type distribution across phases
 
-**Context, Pressure & Efficiency (Q7–Q15):** Q7: Combined batting+bowling impact. Q8: Fielding contributions. Q9: Scoring progression. Q10: Venue patterns. Q11: Death over economy. Q12: Top-order contribution. Q13: Extras contribution. Q14: Run-chase efficiency. Q15: Wicket-loss momentum.
+**Context, Pressure & Efficiency (Q7–Q15)**
+- Q7: Combined batting + bowling impact (knockout matches)
+- Q8: Fielding contributions (catches, run-outs)
+- Q9: Team scoring progression by phase
+- Q10: Venue-specific scoring patterns
+- Q11: Bowling economy in death overs
+- Q12: Top-order contribution % vs winning
+- Q13: Extras contribution to total runs
+- Q14: Run-chase efficiency ratio
+- Q15: Wicket-loss timing impact on momentum
+
+## Database Schema
+
+**Normalization:** 3NF (Third Normal Form)
+
+**Lookup Tables:** Format, Venue, Team (static reference data)
+
+**Core Entities:** Player, Match (entity definitions)
+
+**Structural Tables:** MatchTeam (M:N resolver), Innings (hierarchy)
+
+**Event Tables:** Delivery, DeliveryExtra, Wicket, FieldingEvent (ball-by-ball transactions)
+
+**Key Relationships:** Team ↔ Match (M:N via MatchTeam) | Match → Innings (1:N) | Innings → Delivery (1:N) | Delivery → Wicket/Extra/Fielding (0..N:1)
 
 ## Technology Stack
 
-Backend: Node.js + Express.js | Database: MySQL | Frontend: EJS + HTML + CSS | Visualizations: Chart.js | ETL: Python | API: RESTful (/query/:id)
+| Layer | Technology |
+|-------|-----------|
+| **Backend** | Node.js + Express.js |
+| **Database** | MySQL |
+| **Frontend** | EJS + HTML + CSS |
+| **Visualizations** | Chart.js |
+| **ETL** | Python |
+| **API** | RESTful (/query/:id) |
 
-## Dataset
+## Methodology Highlights
 
-Source: Cricsheet (https://cricsheet.org/matches/) | Format: JSON (ball-by-ball data) | Total: 398 World Cup matches (166 ODI + 232 T20) | Granularity: Match → Innings → Over → Delivery | Coverage: Venue, teams, players, runs, wickets, fielding events
+**Data Quality:** 398 authentic World Cup matches from Cricsheet with ball-by-ball granularity. Controlled scope (World Cups only) for high-stakes competitive context and meaningful cross-team comparability.
 
-## API Endpoints
+**Schema Design:** Normalized 3NF with separation of lookup data (Format, Venue, Team) from transactional events (Delivery, Wicket, Extra). Associative MatchTeam entity resolves M:N team-match relationships cleanly.
 
-GET / → Home page (query selection) | GET /query/:id → Execute query (id: 1-15)
+**Query Complexity:** Advanced SQL techniques including CTEs for recursive/non-recursive common table expressions, window functions for ranking and aggregation, multi-table joins across 8–10 tables, conditional logic via CASE statements, and group-by aggregations with HAVING clauses.
 
-## Testing Queries
+**Validation:** SQL queries tested on both ODI and T20 datasets separately. Format-specific phase definitions (powerplay, middle, death) enforced in queries. Performance metrics calculated for fair algorithm-independent evaluation.
 
-**Coursera Lab:**
-```bash
-mysql -u root
-USE cricket_wc;
-source sql/queries.sql
-```
+**Reproducibility:** Fixed random seed for consistency. Separate SQL files for schema and queries. Python ETL script handles JSON parsing and normalization. All 398 matches included with no sampling.
 
-**Local Computer:**
-```bash
-mysql -u root -p cricket_wc < sql/queries.sql
-```
+## Endpoints
 
-## Deployment
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /` | Query selection hub (15 queries listed) |
+| `GET /query/:id` | Execute query (id: 1–15), return results + visualization |
 
-**Local Development:** npm start | Access at http://localhost:3000
+## Experimental Sections
 
-**Production:** Update database credentials in app/db.js for cloud MySQL (AWS RDS, Google Cloud SQL, Azure Database).
-
-## Assessment Coverage
-
-**Stage 1:** Dataset identification, scope justification (398 WC matches), data quality assessment, 15 relational research questions ✅
-
-**Stage 2:** Conceptual E/R diagram (M:N relationships), logical relational model, DDL implementation, 3NF normalization ✅
-
-**Stage 3:** MySQL schema (10 tables), 15 complex SQL queries, Python ETL pipeline, data validation ✅
-
-**Stage 4:** Express.js backend, EJS templating, Chart.js visualizations, responsive CSS, error handling ✅
-
-## Security
-
-Keep database credentials in .env (not in git). Use environment variables for sensitive data. Validate all user inputs. Use parameterized queries (already implemented).
-
-## License
-
-MIT License - see LICENSE file for details.
+- Conceptual E/R diagram (real-world relationships including M:N Team–Match)
+- Logical relational model (implementation-ready schema with PK/FK)
+- Normalization validation (1NF, 2NF, 3NF proofs)
+- Query performance analysis (CTEs vs subqueries, aggregation efficiency)
+- Visualization of results (data tables, Chart.js charts, format comparisons)
+- Phase-based analysis (powerplay vs middle vs death overs)
+- Cross-format comparison (ODI vs T20 structural differences)
 
 ## Author
 
-Dhanarasu Naveen | Student ID: 230655533 | Course: CM3010 - Databases and Advanced Data Techniques | University of London (via SIM Singapore)
+**Dhanarasu Naveen**  
+Student ID: 230655533  
+Course: CM3010 – Databases and Advanced Data Techniques  
+University of London (via SIM Singapore)
+
+## License
+
+MIT License
 
 ## References
 
