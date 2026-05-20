@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= queryTitle %> - Analytics Hub
+    </title>
+
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="content-wrapper">
+
+        <header style="margin-bottom:20px;">
+            <h1>World Cup Cricket Analytics Hub</h1>
+        </header>
+
+        <div class="results-header-bar">
+            <a href="../" class="back-button">
+                <i class="fa-solid fa-arrow-left-long"></i> Back to Queries
+            </a>
+            <div class="header-text">
+                <h2 class="results-title">
+                    <%= queryTitle %>
+                </h2>
+                <p class="full-question">
+                    <%= fullQuestion %>
+                </p>
+            </div>
+        </div>
+
+        <% if (locals.analystTake) { %>
+            <div class="analyst-card">
+                <div class="analyst-header">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i> Analyst's Take
+                </div>
+                <p class="analyst-text">
+                    <%= analystTake %>
+                </p>
+            </div>
+            <% } %>
+
+                <div class="chart-section-card">
+                    <h3 class="chart-heading">Powerplay Impact: Wins vs Losses (Top 5 Teams)</h3>
+
+                    <div class="format-toggle-container">
+                        <div class="toggle-label active" id="label-odi">[ 🏏 ODI World Cup ]</div>
+                        <label class="switch">
+                            <input type="checkbox" id="formatToggle">
+                            <span class="slider round"></span>
+                        </label>
+                        <div class="toggle-label" id="label-t20">[ ⚡ T20 World Cup ]</div>
+                    </div>
+
+                    <div class="canvas-container" style="height:420px; position: relative;">
+                        <canvas id="q4Chart"></canvas>
+                    </div>
+                </div>
+
+                <main class="results-card">
+                    <div class="table-responsive">
+                        <table class="results-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <% fields.forEach(f=> { %>
+                                        <th>
+                                            <%= f.name.replace(/_/g,' ') %></th>
+                    <% }) %>
+                </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+<script id="data-results" type="application/json"><%- JSON.stringify(results) %></script>
+<script id="data-fields" type="application/json"><%- JSON.stringify(fields) %></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const resultsElement = document.getElementById('data-results');
+        const fieldsElement = document.getElementById('data-fields');
+
+        if (!resultsElement || !fieldsElement) return;
+
+        const rawResults = JSON.parse(resultsElement.textContent);
+        const tableFields = JSON.parse(fieldsElement.textContent);
+
+        const toggle = document.getElementById('formatToggle');
+        const tbody = document.getElementById('tableBody');
+        const labelOdi = document.getElementById('label-odi');
+        const labelT20 = document.getElementById('label-t20');
+
+        let chartInstance = null;
+
+        function updateView() {
+            const isT20 = toggle.checked;
+            const format = isT20 ? 'T20' : 'ODI';
+
+            labelOdi.classList.toggle('active', !isT20);
+            labelT20.classList.toggle('active', isT20);
+
+            // Filter data based on the format
+            const fullTableData = rawResults.filter(r =>
+                (r.format_name || '').toString().toUpperCase().trim() === format
+            );
+
+            // Clear and rebuild table
+            tbody.innerHTML = '';
+            fullTableData.forEach((row, i) => {
+                const tr = document.createElement('tr');
+                tr.className = 'data-row';
+
+                let rank = `<div class="rank-circle">${i + 1}</div>`;
+                if (i === 0) rank = `<div class="rank-circle rank-1">1</div>`;
+                if (i === 1) rank = `<div class="rank-circle rank-2">2</div>`;
+                if (i === 2) rank = `<div class="rank-circle rank-3">3</div>`;
+
+                let html = `
+                                        <td>${rank}</td>`;
+                tableFields.forEach(f => {
+                    let v = row[f.name];
+                    if (f.name === 'format_name') {
+                        v = `<span
+                                            class="format-badge ${v === 'ODI' ? 'format-odi' : 'format-t20'}">${v}</span>`;
+                    } else if (!isNaN(v) && v !== null && v !== '') {
+                        v = Number(v).toFixed(2);
+                    }
+                    html += `<td>${v ?? '0.00'}</td>`;
+                });
+                tr.innerHTML = html;
+                tbody.appendChild(tr);
+            });
+
+            // CHART DATA: Use exact SQL aliases with bracket notation
+            const winKey = 'PP_run_share_wins (%)';
+            const lossKey = 'PP_run_share_losses (%)';
+
+            const chartData = [...fullTableData]
+                .sort((a, b) => (Number(b[winKey]) || 0) - (Number(a[winKey]) || 0))
+                .slice(0, 5);
+
+            const ctx = document.getElementById('q4Chart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartData.map(r => r.team_name),
+                    datasets: [
+                        {
+                            label: 'In Wins (%)',
+                            data: chartData.map(r => Number(r[winKey]) || 0),
+                            backgroundColor: isT20 ? '#00e5ff' : '#00f2ff',
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'In Losses (%)',
+                            data: chartData.map(r => Number(r[lossKey]) || 0),
+                            backgroundColor: '#d946ef',
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: v => v + '%',
+                                color: '#94a3b8'
+                            },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#fff',
+                                font: { weight: 'bold' }
+                            },
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { color: '#cbd5e1', padding: 20 }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15,23,42,0.9)',
+                            callbacks: {
+                                label: (context) => `${context.dataset.label}: ${context.raw.toFixed(2)}%`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        toggle.addEventListener('change', updateView);
+        updateView();
+    });
+</script>
+</body>
+
+</html>

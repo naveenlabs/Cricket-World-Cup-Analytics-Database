@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= queryTitle %> - Analytics Hub</title>
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="content-wrapper">
+        <header style="margin-bottom: 20px;">
+            <h1>World Cup Cricket Analytics Hub</h1>
+        </header>
+
+        <div class="results-header-bar">
+            <a href="../" class="back-button">
+                <i class="fa-solid fa-arrow-left-long"></i> Back to Queries
+            </a>
+            <div class="header-text">
+                <h2 class="results-title"><%= queryTitle %></h2>
+                <p class="full-question"><%= fullQuestion %></p>
+            </div>
+        </div>
+
+        <% if (locals.analystTake) { %>
+            <div class="analyst-card">
+                <div class="analyst-header">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i> Analyst's Take
+                </div>
+                <p class="analyst-text"><%= analystTake %></p>
+            </div>
+        <% } %>
+
+        <div class="chart-section-card">
+            <h3 class="chart-heading">Fielding Impact: Catches vs Run Outs</h3>
+
+            <div class="filter-row" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px;margin-bottom:20px;">
+                <div class="format-toggle-container">
+                    <div class="toggle-label active" id="label-odi">[ 🏏 ODI ]</div>
+                    <label class="switch">
+                        <input type="checkbox" id="formatToggle">
+                        <span class="slider round"></span>
+                    </label>
+                    <div class="toggle-label" id="label-t20">[ ⚡ T20 ]</div>
+                </div>
+            </div>
+
+            <div class="canvas-container" style="height:550px;">
+                <canvas id="q8Chart"></canvas>
+            </div>
+        </div>
+
+        <main class="results-card" style="overflow:visible;">
+            <div class="table-responsive">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th style="width:50px;">#</th>
+                            <% fields.forEach(field => { %>
+                                <th><%= field.name.replace(/_/g,' ') %></th>
+                            <% }) %>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script id="data-results" type="application/json"><%- JSON.stringify(results || []) %></script>
+    <script id="data-fields" type="application/json"><%- JSON.stringify(fields || []) %></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const rawResults = JSON.parse(document.getElementById('data-results').textContent);
+            const tableFields = JSON.parse(document.getElementById('data-fields').textContent);
+
+            const formatToggle = document.getElementById('formatToggle');
+            const tbody = document.getElementById('tableBody');
+            const labelOdi = document.getElementById('label-odi');
+            const labelT20 = document.getElementById('label-t20');
+
+            let chartInstance = null;
+
+            function updateView() {
+                const isT20 = formatToggle.checked;
+                const format = isT20 ? 'T20' : 'ODI';
+
+                labelOdi.classList.toggle('active', !isT20);
+                labelT20.classList.toggle('active', isT20);
+
+                const filteredData = rawResults.filter(r =>
+                    (r.format_name || '').trim() === format
+                );
+
+                /* TABLE - EXACT Q5 STYLE */
+                tbody.innerHTML = '';
+                filteredData.forEach((row, i) => {
+                    const tr = document.createElement('tr');
+                    let rank = `<div class="rank-circle">${i + 1}</div>`;
+                    if (i === 0) rank = `<div class="rank-circle rank-1">${i + 1}</div>`;
+                    if (i === 1) rank = `<div class="rank-circle rank-2">${i + 1}</div>`;
+                    if (i === 2) rank = `<div class="rank-circle rank-3">${i + 1}</div>`;
+
+                    let html = `<td>${rank}</td>`;
+                    tableFields.forEach(f => {
+                        let v = row[f.name];
+                        if (f.name === 'format_name') {
+                            v = `<span class="format-badge ${v === 'ODI' ? 'format-odi' : 'format-t20'}">${v}</span>`;
+                        } else if (!isNaN(v) && v !== null && v !== '' && v % 1 !== 0) {
+                            v = Number(v).toFixed(2);
+                        }
+                        html += `<td>${v ?? 0}</td>`;
+                    });
+                    tr.innerHTML = html;
+                    tbody.appendChild(tr);
+                });
+
+                /* CHART - EXACT Q5 STYLE COPIED */
+                const ctx = document.getElementById('q8Chart').getContext('2d');
+                if (chartInstance) chartInstance.destroy();
+
+                const labels = filteredData.map(r => r.team_name);
+                const catchValues = filteredData.map(r => Number(r.catches) || 0);
+                const runoutValues = filteredData.map(r => Number(r.run_outs) || 0);
+
+                // EXACT Q5 COLORS & GRADIENTS
+                const cyanGlow = '#00f2ff';
+                const magentaGlow = '#d946ef';
+
+                // Catch Dataset Gradient
+                const gradCatch = ctx.createLinearGradient(0, 0, 800, 0);
+                gradCatch.addColorStop(0, 'rgba(0,242,255,0.4)');
+                gradCatch.addColorStop(1, 'rgba(0,242,255,1)');
+
+                // Run Out Dataset Gradient
+                const gradRunOut = ctx.createLinearGradient(0, 0, 800, 0);
+                gradRunOut.addColorStop(0, 'rgba(217,70,239,0.3)');
+                gradRunOut.addColorStop(1, 'rgba(217,70,239,1)');
+
+                chartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: 'Catches',
+                                data: catchValues,
+                                backgroundColor: gradCatch,
+                                borderRadius: 6,
+                                glowColor: cyanGlow // Custom property for the plugin
+                            },
+                            {
+                                label: 'Run Outs',
+                                data: runoutValues,
+                                backgroundColor: gradRunOut,
+                                borderRadius: 6,
+                                glowColor: magentaGlow // Custom property for the plugin
+                            }
+                        ]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: { duration: 1000, easing: 'easeOutQuart' },
+                        plugins: { 
+                            legend: { 
+                                display: true,
+                                labels: { color: '#fff', font: { weight: 'bold' } }
+                            } 
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: 'rgba(255,255,255,0.05)' },
+                                title: { display: true, text: 'Dismissals', color: '#94a3b8' }
+                            },
+                            y: {
+                                ticks: { color: '#fff', font: { weight: 'bold' } },
+                                grid: { display: false }
+                            }
+                        }
+                    },
+                    plugins: [{
+                        id: 'neonGlow',
+                        beforeDraw(c) {
+                            // This matches the literal logic in your Q5 code
+                            c.ctx.save();
+                            // Note: Since Q8 has two datasets, the shadow is handled per-dataset draw or generally
+                            // To keep it exactly like Q5, we use the shadow logic here
+                            c.ctx.shadowBlur = 5;
+                            c.ctx.shadowOffsetX = 1;
+                        },
+                        // We use beforeDatasetDraw to swap the glow color based on the dataset being drawn
+                        beforeDatasetDraw(c, args) {
+                            c.ctx.shadowColor = c.data.datasets[args.index].glowColor;
+                        },
+                        afterDraw(c) { c.ctx.restore(); }
+                    }]
+                });
+            }
+
+            formatToggle.addEventListener('change', updateView);
+            updateView();
+        });
+    </script>
+</body>
+</html>

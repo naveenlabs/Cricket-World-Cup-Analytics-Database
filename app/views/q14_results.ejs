@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= queryTitle %> - Analytics Hub
+    </title>
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="content-wrapper">
+        <header style="margin-bottom: 20px;">
+            <h1>World Cup Cricket Analytics Hub</h1>
+        </header>
+
+        <div class="results-header-bar">
+            <a href="../" class="back-button">
+                <i class="fa-solid fa-arrow-left-long"></i> Back to Queries
+            </a>
+            <div class="header-text">
+                <h2 class="results-title">
+                    <%= queryTitle %>
+                </h2>
+                <p class="full-question">
+                    <%= fullQuestion %>
+                </p>
+            </div>
+        </div>
+
+        <% if (locals.analystTake) { %>
+            <div class="analyst-card">
+                <div class="analyst-header">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i> Analyst's Take
+                </div>
+                <p class="analyst-text">
+                    <%= analystTake %>
+                </p>
+            </div>
+            <% } %>
+
+                <div class="chart-section-card">
+                    <h3 class="chart-heading">CHASE MASTERY MATRIX: EFFICIENCY VS SUCCESS</h3>
+                    <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 20px; text-align: center;">
+                        <span style="color:#fbbf24">● The Kings (High Win%, High Eff)</span> |
+                        <span style="color:#ef4444">● The Strugglers</span> |
+                        <i>Bubble Size = Experience (Chases Played)</i>
+                    </p>
+
+                    <div class="format-toggle-container" style="margin-bottom: 20px;">
+                        <div class="toggle-label active" id="label-odi">[ 🏏 ODI ]</div>
+                        <label class="switch">
+                            <input type="checkbox" id="formatToggle">
+                            <span class="slider round"></span>
+                        </label>
+                        <div class="toggle-label" id="label-t20">[ ⚡ T20 ]</div>
+                    </div>
+
+                    <div class="canvas-container"
+                        style="height: 600px; background: radial-gradient(circle at center, rgba(30,41,59,0.4) 0%, rgba(15,23,42,0.9) 100%); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px;">
+                        <canvas id="q14Chart"></canvas>
+                    </div>
+                </div>
+
+                <main class="results-card" style="margin-top: 30px; overflow: visible;">
+                    <div class="table-responsive">
+                        <table class="results-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:50px;">#</th>
+                                    <% fields.forEach(field=> { %>
+                                        <th>
+                                            <%= field.name.toUpperCase().replace(/_/g,' ') %></th>
+                            <% }) %>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script id="data-results" type="application/json"><%- JSON.stringify(results || []) %></script>
+    <script id="data-fields" type="application/json"><%- JSON.stringify(fields || []) %></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const rawResults =
+                JSON.parse(document.getElementById('data-results').textContent);
+            const tableFields =
+                JSON.parse(document.getElementById('data-fields').textContent);
+            const formatToggle = document.getElementById('formatToggle');
+            const tbody = document.getElementById('tableBody');
+            const labelOdi = document.getElementById('label-odi');
+            const labelT20 = document.getElementById('label-t20');
+
+            let chartInstance = null;
+
+            function updateView() {
+                const isT20 = formatToggle.checked;
+                const format = isT20 ? 'T20' : 'ODI';
+
+                labelOdi.classList.toggle('active', !isT20);
+                labelT20.classList.toggle('active', isT20);
+
+                const filteredData = rawResults.filter(r => (r.format_name || '').trim()
+                    === format);
+
+                // --- 1. RENDER TABLE ---
+                tbody.innerHTML = '';
+                filteredData.forEach((row, i) => {
+                    const tr = document.createElement('tr');
+
+                    let rank = `<div class="rank-circle" style="background:#334155;">${i +
+                        1}</div>`;
+                    if (i === 0) rank = `<div class="rank-circle rank-1"
+                                                    style="background: linear-gradient(135deg, #FFD700, #FDB931); color: #000;">
+                                                    <i class="fa-solid fa-crown"></i></div>`;
+
+                    let html = `
+                                        <td>${rank}</td>`;
+                    tableFields.forEach(f => {
+                        let v = row[f.name];
+                        if (f.name === 'format_name') {
+                            v = `<span
+                                            class="format-badge ${v === 'ODI' ? 'format-odi' : 'format-t20'}">${v}</span>`;
+                        } else if (f.name.includes('pct')) {
+                            v = `<strong>${Number(v).toFixed(1)}%</strong>`;
+                        } else if (f.name.includes('ratio')) {
+                            const color = v > 1.2 ? '#39ff14' : (v < 1.0 ? '#ef4444' : '#fff'); v = `<span
+                                            style="color:${color}">${Number(v).toFixed(3)}</span>`;
+                        } else if (!isNaN(v) && v !== null && v !== '' && v % 1 !== 0) {
+                            v = Number(v).toFixed(2);
+                        }
+                        html += `<td>${v ?? '-'}</td>`;
+                    });
+                    tr.innerHTML = html;
+                    tbody.appendChild(tr);
+                });
+
+                // --- 2. RENDER SCATTER PLOT ---
+                const ctx = document.getElementById('q14Chart').getContext('2d');
+                if (chartInstance) chartInstance.destroy();
+
+                const scatterData = filteredData.map(r => {
+                    const x = Number(r.chase_success_pct) || 0;
+                    const y = Number(r.rr_efficiency_ratio) || 0;
+                    const count = Number(r.chases_played) || 1;
+                    const name = r.team_name;
+
+                    // Quadrant Color Logic
+                    let color = '#94a3b8'; // Default Grey
+                    if (x > 60 && y > 1.15) color = '#fbbf24'; // GOLD (Kings)
+                    else if (x < 45 && y < 1.15) color = '#ef4444'; // RED (Strugglers) 
+                    else if (y > 1.3) color = '#f472b6'; // PINK (High Variance)
+                    else color = '#3b82f6'; // BLUE (Steady)
+
+                const radius = Math.max(6, Math.sqrt(count) * 4);
+
+                return {
+                    x: x, y: y, r: radius, team: name, matches: count, color: color
+                };
+            });
+
+        chartInstance = new Chart(ctx, {
+            type: 'bubble',
+            data: {
+                datasets: [{
+                    label: 'Teams',
+                    data: scatterData,
+                    backgroundColor: (context) => context.raw ? context.raw.color + '80' :
+                        '#fff',
+                    borderColor: (context) => context.raw ? context.raw.color : '#fff',
+                    borderWidth: 2,
+                    hoverBackgroundColor: '#ffffff',
+                    hoverBorderWidth: 3,
+                    hoverRadius: (context) => (context.raw ? context.raw.r + 5 : 10)
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 1500, easing: 'easeOutQuart' },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        titleFont: { size: 14, weight: 'bold' },
+                        bodyFont: { size: 13 },
+                        borderColor: 'rgba(255,255,255,0.2)',
+                        borderWidth: 1,
+                        padding: 12,
+                        displayColors: false,
+                        callbacks: {
+                            label: (context) => {
+                                const d = context.raw;
+                                return [
+                                    `Team: ${d.team.toUpperCase()}`,
+                                    `Success Rate: ${d.x.toFixed(1)}%`,
+                                    `Efficiency: ${d.y.toFixed(3)}`,
+                                    `Chases: ${d.matches}`
+                                ];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true, text: 'Chase Success Percentage (%)', color:
+                                '#94a3b8'
+                        },
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#cbd5e1', font: { weight: 'bold' } },
+                        min: 0, max: 110
+                    },
+                    y: {
+                        title: { display: true, text: 'Run Rate Efficiency (Achieved / Required)', color: '#94a3b8' },
+        grid: { color: 'rgba(255,255,255,0.05)' },
+        ticks: { color: '#cbd5e1', font: { weight: 'bold' } },
+        min: 0.8
+                                                }
+                                                }
+                                                }, // <--- IMPORTANT COMMA HERE plugins: [{ id: 'quadrantOverlay' ,
+        beforeDraw: function(chart) {
+            const { ctx, chartArea, scales
+            } = chart; const { top, bottom, left, right } = chartArea; const { x, y
+            } = scales; if (!x || !y) return; const midX = x.getPixelForValue(50);
+            const midY = y.getPixelForValue(1.2); ctx.save(); // Draw Quadrant Lines 
+            ctx.beginPath(); ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 2; ctx.setLineDash([6, 6]); if (midX >= left && midX <=
+                right) { ctx.moveTo(midX, top); ctx.lineTo(midX, bottom); } if
+                (midY >= top && midY <= bottom) {
+                    ctx.moveTo(left, midY);
+                ctx.lineTo(right, midY);
+            } ctx.stroke(); // Quadrant Labels
+            ctx.font = '900 16px sans-serif';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText("DOMINANT KINGS", right - 80, top + 50);
+            ctx.fillText("VOLATILE", left + 80, top + 50);
+            ctx.fillText("GRINDERS", right - 80, bottom - 50);
+            ctx.fillText("STRUGGLE ZONE", left + 80, bottom - 50);
+            ctx.restore();
+        } 
+}); 
+}
+        formatToggle.addEventListener('change', updateView);
+        updateView(); }); 
+        
+</script>
+</body>
+
+</html>

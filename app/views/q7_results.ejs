@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= queryTitle %> - Analytics Hub
+    </title>
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        .chart-section-card {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 30px;
+        }
+
+        .king-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(90deg, #fbbf24, #f59e0b);
+            color: #000;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 800;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="content-wrapper">
+        <header style="margin-bottom: 20px;">
+            <h1>World Cup Cricket Analytics Hub</h1>
+        </header>
+
+        <div class="results-header-bar">
+            <a href="../" class="back-button">
+                <i class="fa-solid fa-arrow-left-long"></i> Back to Queries
+            </a>
+            <div class="header-text">
+                <div class="king-badge"><i class="fa-solid fa-crown"></i> KNOCKOUT MASTERCLASS</div>
+                <h2 class="results-title">
+                    <%= queryTitle %>
+                </h2>
+                <p class="full-question">
+                    <%= fullQuestion %>
+                </p>
+            </div>
+        </div>
+
+        <% if (locals.analystTake) { %>
+            <div class="analyst-card">
+                <div class="analyst-header">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i> Analyst's Take
+                </div>
+                <p class="analyst-text">
+                    <%= analystTake %>
+                </p>
+            </div>
+            <% } %>
+
+                <div class="chart-section-card">
+                    <h3 class="chart-heading" style="color: #fff; margin-bottom: 20px;">Total Impact Ranking (All-Time
+                        Knockouts)</h3>
+                    <div class="canvas-container" style="height:550px;">
+                        <canvas id="q7Chart"></canvas>
+                    </div>
+                </div>
+
+                <main class="results-card" style="margin-top: 30px;">
+                    <div class="table-responsive">
+                        <table class="results-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:50px;">#</th>
+                                    <% fields.forEach(field=> { %>
+                                        <th>
+                                            <%= field.name.toUpperCase().replace(/_/g,' ') %></th>
+                            <% }) %>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script id="data-results" type="application/json"><%- JSON.stringify(results || []) %></script>
+    <script id="data-fields" type="application/json"><%- JSON.stringify(fields || []) %></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', ()=> {
+                                                const rawResults =
+                                                JSON.parse(document.getElementById('data-results').textContent);
+                                                const tableFields =
+                                                JSON.parse(document.getElementById('data-fields').textContent);
+                                                const tbody = document.getElementById('tableBody');
+
+                                                /* 1. TABLE RENDERING */
+                                                tbody.innerHTML = '';
+                                                rawResults.forEach((row, i) => {
+                                                const tr = document.createElement('tr');
+                                                let rank = `<div class="rank-circle">${i + 1}</div>`;
+                                                if (i === 0) rank = `<div class="rank-circle rank-1"><i
+                                                        class="fa-solid fa-crown"></i></div>`;
+                                                else if (i === 1) rank = `<div class="rank-circle rank-2">2</div>`;
+                                                else if (i === 2) rank = `<div class="rank-circle rank-3">3</div>`;
+
+                                                let html = `
+                                        <td>${rank}</td>`;
+                                        tableFields.forEach(f => {
+                                        let v = row[f.name];
+                                        if (f.name === 'total_impact_score') v =
+                                        `<strong>${Number(v).toFixed(2)}</strong>`;
+                                        html += `<td>${v ?? '---'}</td>`;
+                                        });
+                                        tr.innerHTML = html;
+                                        tbody.appendChild(tr);
+                                        });
+
+                                        /* 2. LOLLIPOP CHART RENDERING */
+                                        const ctx = document.getElementById('q7Chart').getContext('2d');
+
+                                        const labels = rawResults.map(r => r.player_name);
+                                        const values = rawResults.map(r => Number(r.total_impact_score));
+
+                                        // Logic for Lollipop: Line chart with hidden lines and big points
+                                        new Chart(ctx, {
+                                        type: 'bar', // Using bar base to create the "stems"
+                                        data: {
+                                        labels: labels,
+                                        datasets: [{
+                                        label: 'Impact Score',
+                                        data: values,
+                                        backgroundColor: (c) => {
+                                        const idx = c.dataIndex;
+                                        if (idx === 0) return '#fbbf24'; // Gold for King
+                                        if (idx === 1) return '#e2e8f0'; // Silver
+                                        if (idx === 2) return '#cd7f32'; // Bronze
+                                        return '#6366f1'; // Default Indigo
+                                        },
+                                        barThickness: 4, // Thin stems
+                                        borderRadius: 10
+                                        }]
+                                        },
+                                        options: {
+                                        indexAxis: 'y',
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        layout: { padding: { right: 50 } },
+                                        plugins: {
+                                        legend: { display: false },
+                                        tooltip: { backgroundColor: 'rgba(15,23,42,0.9)' }
+                                        },
+                                        scales: {
+                                        x: {
+                                        beginAtZero: true,
+                                        grid: { color: 'rgba(255,255,255,0.05)' },
+                                        ticks: { color: '#94a3b8' }
+                                        },
+                                        y: {
+                                        grid: { display: false },
+                                        ticks: { color: '#fff', font: { weight: 'bold', size: 13 } }
+                                        }
+                                        }
+                                        },
+                                        plugins: [{
+                                        id: 'customLollyPoints',
+                                        afterDatasetsDraw(chart) {
+                                        const { ctx, data } = chart;
+                                        chart.getDatasetMeta(0).data.forEach((bar, index) => {
+                                        const val = data.datasets[0].data[index];
+                                        const color = datasetColor(index);
+
+                                        // Draw the "Candy" circle at the end of the stem
+                                        ctx.save();
+                                        ctx.beginPath();
+                                        ctx.arc(bar.x, bar.y, index === 0 ? 12 : 8, 0, Math.PI * 2);
+                                        ctx.fillStyle = color;
+                                        ctx.shadowBlur = index === 0 ? 25 : 10;
+                                        ctx.shadowColor = color;
+                                        ctx.fill();
+
+                                        // Text value next to the circle
+                                        ctx.shadowBlur = 0;
+                                        ctx.fillStyle = '#fff';
+                                        ctx.font = index === 0 ? 'bold 14px sans-serif' : '12px sans-serif';
+                                        ctx.fillText(val.toFixed(2), bar.x + 20, bar.y + 5);
+                                        ctx.restore();
+                                        });
+                                        }
+                                        }]
+                                        });
+
+                                        function datasetColor(idx) {
+                                        if (idx === 0) return '#fbbf24';
+                                        if (idx === 1) return '#cbd5e1';
+                                        if (idx === 2) return '#cd7f32';
+                                        return '#6366f1';
+                                        }
+                                        });
+    </script>
+</body>
+
+</html>
