@@ -184,5 +184,3 @@ MIT License
 Cricsheet: https://cricsheet.org/ | MySQL: https://dev.mysql.com/doc/ | Express.js: https://expressjs.com/ | EJS: https://ejs.co/
 
 ---
-
-**Status:** Production Ready ✅ | **Version:** 1.0.0 | **Last Updated:** May 2026
